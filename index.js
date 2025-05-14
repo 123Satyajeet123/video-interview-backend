@@ -8,8 +8,17 @@ const mongoose = require("mongoose");
 
 // Importinig the routes
 const interviewRouter = require("./routes/interviewRouter");
+const userRouter = require("./routes/userRouter");
+const jobRouter = require("./routes/jobRouter");
 
-const { validateOpenAIKey } = require("./controllers/openaiApiCheck");
+const connectDB = require("./config/db");
+
+// Connecting to the database
+connectDB()
+    .then(() => console.log("✅ MongoDB connected"))
+    .catch((err) => console.error("❌ MongoDB connection error:", err));
+
+const { validateOpenAIKey } = require("./utils/openaiApiCheck");
 
 const app = express();
 
@@ -21,6 +30,8 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/interviews", interviewRouter);
+app.use("/api/users", userRouter);
+app.use("/api/jobs", jobRouter);
 
 // Global error handler
 app.use((err, req, res, next) => {

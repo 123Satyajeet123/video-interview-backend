@@ -8,7 +8,7 @@ const Job = require('../models/Job');
 
 const openai = new OpenAI();
 
-const createInterview = async (req, res) => {
+const initiateInterview = async (req, res) => {
     try {
         const { jobId, userId } = req.body;
     
@@ -17,11 +17,24 @@ const createInterview = async (req, res) => {
         if (!job) {
             return res.status(404).json({ message: 'Job not found' });
         }
+
         // Check if the user exists
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
+
+        // Check if there's a pending interview
+        const existingInterview = await Interview.findOne({
+            job: jobId,
+            user: userId,
+            status: 'pending'
+        });
+
+        if (existingInterview) {
+            return res.status(400).json({ message: 'A pending interview already exists' });
+        }
+
         // Create a new interview
         const interview = new Interview({
             job: jobId,
@@ -30,20 +43,23 @@ const createInterview = async (req, res) => {
             date: new Date(),
         });
         await interview.save();
+
         // Create a new conversation
         const conversation = new Conversation({
             interview: interview._id,
             messages: [
                 {
                     role: 'assistant',
-                    text: 'Hello! Today I am going to take your interview for the position of ' + job.title + '.',
+                    text: `Hello ${user.name}! Today I am going to take your interview for the position of ${job.title} at ${job.company}.`,
                 }
             ],
         }); 
         await conversation.save();
+
         // Update the interview with the conversation ID
         interview.conversation = conversation._id;
         await interview.save();
+
         // Return the created interview
         res.status(201).json(interview);
     }
@@ -124,7 +140,7 @@ const replyToInterview = async (req, res) => {
 }
 
 module.exports = {
-    createInterview,
+    initiateInterview,
     getInterview,
     replyToInterview,
 };

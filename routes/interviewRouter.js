@@ -1,6 +1,6 @@
 const express = require('express');
 const { 
-    createInterview,
+    initiateInterview,
     getInterview,
     replyToInterview
 } = require('../controllers/interviewController');
@@ -8,7 +8,7 @@ const {
 const router = express.Router();
 
 // Create new interview
-router.post('/', createInterview);
+router.post('/', initiateInterview);
 
 // Get interview by ID
 router.get('/:interviewId', getInterview);
