@@ -3,9 +3,14 @@ require("dotenv").config();
 
 // Importing the required modules
 const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
 
+const { validateOpenAIKey } = require("./controllers/openaiApiCheck");
 
 const app = express();
+
+
 
 app.use(express.json());
 
@@ -20,7 +25,8 @@ app.use((err, req, res, next) => {
 });
 
 // Starting the server
-app.listen(process.env.PORT, () => {
+app.listen(process.env.PORT, async () => {
+    await validateOpenAIKey();
     console.log(`Server is running on port ${process.env.PORT}`);
 });
 
