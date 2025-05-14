@@ -17,6 +17,10 @@ const InterviewSchema = new mongoose.Schema(
             enum: ["pending", "in_progress", "completed"],
             default: "pending",
         },
+        conversation: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Conversation",
+        },
     },
     { timestamps: true }
 );
