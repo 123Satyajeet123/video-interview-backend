@@ -10,8 +10,6 @@ const { validateOpenAIKey } = require("./controllers/openaiApiCheck");
 
 const app = express();
 
-
-
 app.use(express.json());
 
 app.get("/", (req, res) => {
@@ -26,7 +24,6 @@ app.use((err, req, res, next) => {
 
 // Starting the server
 app.listen(process.env.PORT, async () => {
-    await validateOpenAIKey();
+    // await validateOpenAIKey();
     console.log(`Server is running on port ${process.env.PORT}`);
 });
-
