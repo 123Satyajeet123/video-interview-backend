@@ -131,7 +131,10 @@ const replyToInterview = async (req, res) => {
         interview.status = 'in_progress';
         await interview.save();
         // Return the updated conversation
-        res.status(200).json(conversation);
+        res.status(200).json({
+            role: 'assistant',
+            text: response.choices[0].message.content,
+        });
     }
     catch (error) {
         console.error('Error replying to interview:', error);
