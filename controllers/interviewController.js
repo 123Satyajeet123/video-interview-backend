@@ -17,7 +17,7 @@ const initiateInterview = async (req, res) => {
         if (!job) {
             return res.status(404).json({ message: 'Job not found' });
         }
-
+    
         // Check if the user exists
         const user = await User.findById(userId);
         if (!user) {
@@ -30,9 +30,12 @@ const initiateInterview = async (req, res) => {
             user: userId,
             status: 'pending'
         });
-
+ console.log(job.job_title , job.industry )
+ const jobTitle = job?.job_title || 'Unknown Position';
+const industry = job?.industry || 'Unknown Industry';
+// const clientName= job.assignedClient.client_name || "unknown";
         if (existingInterview) {
-            return res.status(400).json({ message: 'A pending interview already exists' });
+            return res.status(200).json( { job: job , interview: existingInterview} );
         }
 
         // Create a new interview
@@ -43,14 +46,14 @@ const initiateInterview = async (req, res) => {
             date: new Date(),
         });
         await interview.save();
-
+      
         // Create a new conversation
         const conversation = new Conversation({
             interview: interview._id,
             messages: [
                 {
                     role: 'assistant',
-                    text: `Hello ${user.name}! Today I am going to take your interview for the position of ${job.title} at ${job.company}.`,
+                    text: `Hello ${user.name}! Today I am going to take your interview for the position of ${jobTitle} at ${industry}.`,
                 }
             ],
         }); 

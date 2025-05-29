@@ -6,6 +6,8 @@ const JobSchema = new mongoose.Schema(
         description: String,
         requirements: [String],
         company: String,
+          job_title: { type: String,  },
+  industry: { type: String,  },
     },
     { timestamps: true }
 );

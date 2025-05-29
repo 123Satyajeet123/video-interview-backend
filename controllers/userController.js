@@ -8,18 +8,20 @@ const createUser = async (req, res) => {
         // Check if the email already exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            return res.status(400).json({ message: "Email already in use" });
+            return res.status(200).json(existingUser); // ✅ Return existing user
         }
 
         // Create a new user
         const user = new User({ name, email });
         await user.save();
 
-        res.status(201).json({ message: "User created successfully", user });
+        res.status(201).json(user); // ✅ Return new user
     } catch (error) {
         res.status(500).json({ message: "Error creating user", error: error.message });
     }
 };
+
+
 
 // Controller to delete a user by ID
 const deleteUser = async (req, res) => {
