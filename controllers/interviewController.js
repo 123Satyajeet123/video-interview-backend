@@ -52,6 +52,19 @@ const industry = job?.industry || 'Unknown Industry';
             interview: interview._id,
             messages: [
                 {
+                    role: 'system',
+                    text: `You are an interviewer for the position of ${job.title} at ${job.company}.
+                    User's resume is ${user.resume}.
+                    Based on the resume and job description provided, generate a (question)/(followup question)/(interviewer response) to the candidate's response given the questions you have to ask and get answers to. If the candidate's response is satisfactory, ask the next question. 
+                    
+                    Strictly ask only 1 question at a time. If the candidate's response is not satisfactory or explanatory, ask them to elaborate on their answer or ask follow up questions. Don't move ahead until the candidate has answered the question satisfactorily. 
+                    Try to ask at maximum 2 follow up questions for each question.
+                    If the candidate is not able to answer a question, ask them to take their time and think about it.
+                    Strictly ask 1 question at a time in the conversation. 
+                    After 2 questions (excluding the follow up questions), ask the candidate if they have any questions for you and end the interview.
+                    To end the interview, say "Thank you for your time and we will get back to you soon."`,
+                },
+                {
                     role: 'assistant',
                     text: `Hello ${user.name}! Today I am going to take your interview for the position of ${jobTitle} at ${industry}.`,
                 }
@@ -106,6 +119,11 @@ const replyToInterview = async (req, res) => {
             return res.status(404).json({ message: 'Conversation not found' });
         }
 
+        // Check if the interview has already ended
+        if (conversation.isEnded || interview.status === 'completed') {
+            return res.status(400).json({ message: 'This interview has already ended' });
+        }
+
         // Add the message to the conversation
         conversation.messages.push({
             role: 'user',
@@ -128,11 +146,17 @@ const replyToInterview = async (req, res) => {
             text: response.choices[0].message.content,
             timestamp: new Date(),
         });
-        await conversation.save();
-
-        // Update the interview status
         interview.status = 'in_progress';
+
+        if (response.choices[0].message.content.toLowerCase().includes('thank you for your time')) {
+            // Mark the conversation as ended
+            conversation.isEnded = true;
+            interview.status = 'completed';
+        }
+
+        await conversation.save();
         await interview.save();
+
         // Return the updated conversation
         res.status(200).json({
             role: 'assistant',
@@ -145,8 +169,39 @@ const replyToInterview = async (req, res) => {
     }
 }
 
+const endInterview = async (req, res) => {
+    try {
+        const { interviewId } = req.params;
+        // Check if the interview exists
+        const interview = await Interview.findById(interviewId);
+        if (!interview) {
+            return res.status(404).json({ message: 'Interview not found' });
+        }
+        // Check if the conversation exists
+        const conversation = await Conversation.findById(interview.conversation);
+        if (!conversation) {
+            return res.status(404).json({ message: 'Conversation not found' });
+        }
+        // Mark the conversation as ended
+        conversation.isEnded = true;
+        interview.status = 'completed';
+        await conversation.save();
+        await interview.save();
+        // Return the updated interview
+        res.status(200).json({
+            message: 'Interview ended successfully',
+            interview,
+        });
+    }
+    catch (error) {
+        console.error('Error ending interview:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+}
+
 module.exports = {
     initiateInterview,
     getInterview,
     replyToInterview,
+    endInterview
 };
