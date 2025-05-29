@@ -15,6 +15,7 @@ const ConversationSchema = new mongoose.Schema(
             required: true,
         },
         messages: [MessageSchema],
+        isEnded: { type: Boolean, default: false }, // Indicates if conversation has ended
     },
     { timestamps: true }
 );
