@@ -1,6 +1,6 @@
 const { OpenAI } = require("openai");
 const mongoose = require("mongoose");
-const Interview = require("../models/Interview");
+const Interview = require("../models/interview");
 const Conversation = require("../models/Conversation");
 const User = require("../models/User");
 const Job = require("../models/Job");
