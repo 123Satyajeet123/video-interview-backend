@@ -20,6 +20,7 @@ const initiateInterview = async (req, res) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
+<<<<<<< HEAD
     // Check if the user exists
     const user = await User.findById(userId);
     if (!user) {
@@ -56,11 +57,33 @@ const initiateInterview = async (req, res) => {
         {
           role: "system",
           text: `You are an interviewer for the position of ${job.title} at ${job.company}.
+=======
+        // Create a new interview
+        const interview = new Interview({
+            job: jobId,
+            user: userId,
+            status: 'pending',
+            date: new Date(),
+        });
+        await interview.save();
+      
+        // Create a new conversation
+        const conversation = new Conversation({
+            interview: interview._id,
+            messages: [
+                {
+                    role: 'system',
+                    text: `You are an interviewer for the position of ${job.title} at ${job.company} where the requirements are ${job.requirements.join(', ')}.
+                    Job description is as follows: \n${job.description}.
+>>>>>>> e7f033ce9c290dbf691ac59987c8fee031421efa
                     User's resume is ${user.resume}.
+
                     Based on the resume and job description provided, generate a (question)/(followup question)/(interviewer response) to the candidate's response given the questions you have to ask and get answers to. If the candidate's response is satisfactory, ask the next question. 
                     
-                    Strictly ask only 1 question at a time. If the candidate's response is not satisfactory or explanatory, ask them to elaborate on their answer or ask follow up questions. Don't move ahead until the candidate has answered the question satisfactorily. 
-                    Try to ask at maximum 2 follow up questions for each question.
+                    Strictly ask only 1 question at a time. 
+                    The question should be ideally from the knowledge we already have about the candidate.
+                    If the candidate's response is not satisfactory or explanatory, ask them to elaborate on their answer or ask follow up questions. Don't move ahead until the candidate has answered the question satisfactorily. 
+                    Try to ask at maximum 1 follow up questions for each question.
                     If the candidate is not able to answer a question, ask them to take their time and think about it.
                     Strictly ask 1 question at a time in the conversation. 
                     After 2 questions (excluding the follow up questions), ask the candidate if they have any questions for you and end the interview.
