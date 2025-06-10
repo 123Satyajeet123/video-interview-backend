@@ -20,44 +20,6 @@ const initiateInterview = async (req, res) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
-<<<<<<< HEAD
-    // Check if the user exists
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Check if there's a pending interview
-    const existingInterview = await Interview.findOne({
-      job: jobId,
-      user: userId,
-      status: "pending",
-    });
-    console.log(job.job_title, job.industry);
-    const jobTitle = job?.job_title || "Unknown Position";
-    const industry = job?.industry || "Unknown Industry";
-    // const clientName= job.assignedClient.client_name || "unknown";
-    if (existingInterview) {
-      return res.status(200).json({ job: job, interview: existingInterview });
-    }
-
-    // Create a new interview
-    const interview = new Interview({
-      job: jobId,
-      user: userId,
-      status: "pending",
-      date: new Date(),
-    });
-    await interview.save();
-
-    // Create a new conversation
-    const conversation = new Conversation({
-      interview: interview._id,
-      messages: [
-        {
-          role: "system",
-          text: `You are an interviewer for the position of ${job.title} at ${job.company}.
-=======
         // Create a new interview
         const interview = new Interview({
             job: jobId,
@@ -75,7 +37,6 @@ const initiateInterview = async (req, res) => {
                     role: 'system',
                     text: `You are an interviewer for the position of ${job.title} at ${job.company} where the requirements are ${job.requirements.join(', ')}.
                     Job description is as follows: \n${job.description}.
->>>>>>> e7f033ce9c290dbf691ac59987c8fee031421efa
                     User's resume is ${user.resume}.
 
                     Based on the resume and job description provided, generate a (question)/(followup question)/(interviewer response) to the candidate's response given the questions you have to ask and get answers to. If the candidate's response is satisfactory, ask the next question. 
