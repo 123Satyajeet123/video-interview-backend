@@ -3,7 +3,8 @@ const {
     initiateInterview,
     getInterview,
     replyToInterview,
-    endInterview
+    endInterview,
+    uploadInterviewVideo
 } = require('../controllers/interviewController');
 
 const router = express.Router();
@@ -19,6 +20,9 @@ router.post('/:interviewId/reply', replyToInterview);
 
 // End an interview
 router.delete('/:interviewId', endInterview);
+
+// Upload interview video
+router.post('/:interviewId/upload-video', uploadInterviewVideo);
 
 // Export the router
 module.exports = router;

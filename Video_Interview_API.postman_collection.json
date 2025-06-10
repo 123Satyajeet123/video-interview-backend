@@ -1,0 +1,105 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		"name": "Video Interview API",
+		"description": "Collection for testing Video Interview API endpoints",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Create Interview",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"jobId\": \"65f1a2b3c4d5e6f7g8h9i0j1\",\n    \"userId\": \"65f1a2b3c4d5e6f7g8h9i0j2\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:5000/interview",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"interview"
+					]
+				},
+				"description": "Create a new interview session"
+			},
+			"response": []
+		},
+		{
+			"name": "Upload Interview Video",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "video",
+							"type": "file",
+							"src": "/path/to/your/video.mp4"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:5000/interview/:interviewId/upload-video",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"interview",
+						":interviewId",
+						"upload-video"
+					],
+					"variable": [
+						{
+							"key": "interviewId",
+							"value": "your_interview_id_here",
+							"description": "The ID of the interview to upload video for"
+						}
+					]
+				},
+				"description": "Upload a video for an existing interview"
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:5000",
+			"type": "string"
+		}
+	]
+} 
