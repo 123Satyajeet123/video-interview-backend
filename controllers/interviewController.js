@@ -1,9 +1,9 @@
 const { OpenAI } = require("openai");
 const mongoose = require("mongoose");
 const Interview = require("../models/interview");
-const Conversation = require("../models/Conversation");
-const User = require("../models/User");
-const Job = require("../models/Job");
+const Conversation = require("../models/conversation");
+const User = require("../models/user");
+const Job = require("../models/job");
 const s3 = require("../utils/doSpaces");
 const multer = require("multer");
 const upload = multer({ storage: multer.memoryStorage() });
