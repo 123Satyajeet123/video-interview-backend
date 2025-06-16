@@ -1,9 +1,9 @@
 const { OpenAI } = require("openai");
 const mongoose = require("mongoose");
-const Interview = require("../models/Interview");
-const Conversation = require("../models/Conversation");
-const User = require("../models/User");
-const Job = require("../models/Job");
+const Interview = require("../models/interview");
+const Conversation = require("../models/conversation");
+const User = require("../models/user");
+const Job = require("../models/job");
 const s3 = require("../utils/doSpaces");
 const multer = require("multer");
 const upload = multer({ storage: multer.memoryStorage() });
@@ -41,8 +41,8 @@ const jobTitle = job?.job_title || "Unknown Position";
             messages: [
                 {
                     role: 'system',
-                    text: `You are an interviewer for the position of ${job.job_title} at ${job.assignedClient?.client_name} where the requirements are ${job.requirements.join(', ')}.
-                    Job description is as follows: \n${job.job_description}.
+                    text: `You are an interviewer for the position of ${job.title} at ${job.company} where the requirements are ${job.requirements.join(', ')}.
+                    Job description is as follows: \n${job.description}.
                     User's resume is ${user.resume}.
 
                     Based on the resume and job description provided, generate a (question)/(followup question)/(interviewer response) to the candidate's response given the questions you have to ask and get answers to. If the candidate's response is satisfactory, ask the next question. 
