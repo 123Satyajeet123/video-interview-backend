@@ -19,45 +19,13 @@ const initiateInterview = async (req, res) => {
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
-
-<<<<<<< HEAD
-    // Check if the user exists
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Check if there's a pending interview
-    const existingInterview = await Interview.findOne({
-      job: jobId,
-      user: userId,
-      status: "pending",
-    });
-    console.log(job.job_title, job.industry);
-    const jobTitle = job?.job_title || "Unknown Position";
+const jobTitle = job?.job_title || "Unknown Position";
     const industry = job?.industry || "Unknown Industry";
-    // const clientName= job.assignedClient.client_name || "unknown";
-    if (existingInterview) {
-      return res.status(200).json({ job: job, interview: existingInterview });
+ const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "user not found" });
     }
 
-    // Create a new interview
-    const interview = new Interview({
-      job: jobId,
-      user: userId,
-      status: "pending",
-      date: new Date(),
-    });
-    await interview.save();
-
-    // Create a new conversation
-    const conversation = new Conversation({
-      interview: interview._id,
-      messages: [
-        {
-          role: "system",
-          text: `You are an interviewer for the position of ${job.title} at ${job.company}.
-=======
         // Create a new interview
         const interview = new Interview({
             job: jobId,
@@ -73,9 +41,8 @@ const initiateInterview = async (req, res) => {
             messages: [
                 {
                     role: 'system',
-                    text: `You are an interviewer for the position of ${job.title} at ${job.company} where the requirements are ${job.requirements.join(', ')}.
-                    Job description is as follows: \n${job.description}.
->>>>>>> e7f033ce9c290dbf691ac59987c8fee031421efa
+                    text: `You are an interviewer for the position of ${job.job_title} at ${job.assignedClient?.client_name} where the requirements are ${job.requirements.join(', ')}.
+                    Job description is as follows: \n${job.job_description}.
                     User's resume is ${user.resume}.
 
                     Based on the resume and job description provided, generate a (question)/(followup question)/(interviewer response) to the candidate's response given the questions you have to ask and get answers to. If the candidate's response is satisfactory, ask the next question. 
@@ -105,7 +72,7 @@ const initiateInterview = async (req, res) => {
     res.status(201).json(interview);
   } catch (error) {
     console.error("Error creating interview:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ message: error.message});
   }
 };
 
@@ -124,7 +91,7 @@ const getInterview = async (req, res) => {
     res.status(200).json(interview);
   } catch (error) {
     console.error("Error getting interview:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -266,10 +233,13 @@ const uploadInterviewVideo = [
         });
     } catch (error) {
       console.error("Error uploading interview video:", error);
-      res.status(500).json({ message: "Internal server error" });
+      res.status(500).json({ message: error.message });
     }
   },
 ];
+
+module.exports = router;
+
 
 module.exports = {
   initiateInterview,
