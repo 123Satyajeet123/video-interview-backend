@@ -212,6 +212,7 @@ const uploadInterviewVideo = [
       const fileName = `interviews/${interviewId}/${Date.now()}_${
         req.file.originalname
       }`;
+
       // Upload to DigitalOcean Spaces
       const params = {
         Bucket: process.env.DO_SPACES_BUCKET, // e.g., 'your-space-name'
@@ -238,9 +239,6 @@ const uploadInterviewVideo = [
   },
 ];
 
-module.exports = router;
-
-
 module.exports = {
   initiateInterview,
   getInterview,
@@ -248,3 +246,4 @@ module.exports = {
   endInterview,
   uploadInterviewVideo,
 };
+

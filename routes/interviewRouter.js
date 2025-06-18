@@ -9,6 +9,10 @@ const {
 
 const router = express.Router();
 
+router.get("/health", (req,res)=>{
+    return res.json({"status":"Healthy"})
+} )
+
 // Create new interview
 router.post('/', initiateInterview);
 
