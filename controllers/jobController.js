@@ -1,17 +1,33 @@
-const Job = require("../models/job");
+const Job = require("../models/Job/Job");
 
 // Controller to create a new job
 const createJob = async (req, res) => {
     try {
         const { title, description, requirements, company } = req.body;
 
+        // Validate required fields
+        if (!title || !description || !company) {
+            return res.status(400).json({
+                error: 'Missing Required Fields',
+                message: 'title, description, and company are required'
+            });
+        }
+
         // Create a new job
         const job = new Job({ title, description, requirements, company });
         await job.save();
 
-        res.status(201).json({ message: "Job created successfully", job });
+        res.status(201).json({ 
+            message: "Job created successfully", 
+            job 
+        });
     } catch (error) {
-        res.status(500).json({ message: "Error creating job", error: error.message });
+        console.error("Error creating job:", error);
+        res.status(500).json({ 
+            error: 'Job Creation Failed',
+            message: "Error creating job", 
+            details: error.message 
+        });
     }
 };
 
@@ -19,9 +35,18 @@ const createJob = async (req, res) => {
 const getAllJobs = async (req, res) => {
     try {
         const jobs = await Job.find();
-        res.status(200).json(jobs);
+        res.status(200).json({
+            message: "Jobs retrieved successfully",
+            count: jobs.length,
+            jobs
+        });
     } catch (error) {
-        res.status(500).json({ message: "Error fetching jobs", error: error.message });
+        console.error("Error fetching jobs:", error);
+        res.status(500).json({ 
+            error: 'Job Retrieval Failed',
+            message: "Error fetching jobs", 
+            details: error.message 
+        });
     }
 };
 
@@ -30,14 +55,33 @@ const getJobById = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const job = await Job.findById(id);
-        if (!job) {
-            return res.status(404).json({ message: "Job not found" });
+        // Validate job ID
+        if (!id) {
+            return res.status(400).json({
+                error: 'Missing Job ID',
+                message: 'Job ID is required'
+            });
         }
 
-        res.status(200).json(job);
+        const job = await Job.findById(id);
+        if (!job) {
+            return res.status(404).json({ 
+                error: 'Job Not Found',
+                message: "Job not found" 
+            });
+        }
+
+        res.status(200).json({
+            message: "Job retrieved successfully",
+            job
+        });
     } catch (error) {
-        res.status(500).json({ message: "Error fetching job", error: error.message });
+        console.error("Error fetching job:", error);
+        res.status(500).json({ 
+            error: 'Job Retrieval Failed',
+            message: "Error fetching job", 
+            details: error.message 
+        });
     }
 };
 
@@ -47,6 +91,14 @@ const updateJob = async (req, res) => {
         const { id } = req.params;
         const { title, description, requirements, company } = req.body;
 
+        // Validate job ID
+        if (!id) {
+            return res.status(400).json({
+                error: 'Missing Job ID',
+                message: 'Job ID is required'
+            });
+        }
+
         const job = await Job.findByIdAndUpdate(
             id,
             { title, description, requirements, company },
@@ -54,12 +106,23 @@ const updateJob = async (req, res) => {
         );
 
         if (!job) {
-            return res.status(404).json({ message: "Job not found" });
+            return res.status(404).json({ 
+                error: 'Job Not Found',
+                message: "Job not found" 
+            });
         }
 
-        res.status(200).json({ message: "Job updated successfully", job });
+        res.status(200).json({ 
+            message: "Job updated successfully", 
+            job 
+        });
     } catch (error) {
-        res.status(500).json({ message: "Error updating job", error: error.message });
+        console.error("Error updating job:", error);
+        res.status(500).json({ 
+            error: 'Job Update Failed',
+            message: "Error updating job", 
+            details: error.message 
+        });
     }
 };
 
@@ -68,14 +131,32 @@ const deleteJob = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const job = await Job.findByIdAndDelete(id);
-        if (!job) {
-            return res.status(404).json({ message: "Job not found" });
+        // Validate job ID
+        if (!id) {
+            return res.status(400).json({
+                error: 'Missing Job ID',
+                message: 'Job ID is required'
+            });
         }
 
-        res.status(200).json({ message: "Job deleted successfully" });
+        const job = await Job.findByIdAndDelete(id);
+        if (!job) {
+            return res.status(404).json({ 
+                error: 'Job Not Found',
+                message: "Job not found" 
+            });
+        }
+
+        res.status(200).json({ 
+            message: "Job deleted successfully" 
+        });
     } catch (error) {
-        res.status(500).json({ message: "Error deleting job", error: error.message });
+        console.error("Error deleting job:", error);
+        res.status(500).json({ 
+            error: 'Job Deletion Failed',
+            message: "Error deleting job", 
+            details: error.message 
+        });
     }
 };
 

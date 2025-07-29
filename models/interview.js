@@ -2,9 +2,9 @@
 const mongoose = require("mongoose");
 const InterviewSchema = new mongoose.Schema(
     {
-        user: {
+        talent: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
+            ref: "Talent",
             required: true,
         },
         job: {

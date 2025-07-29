@@ -1,35 +1,71 @@
 const { OpenAI } = require("openai");
-const mongoose = require("mongoose");
 const Interview = require("../models/interview");
 const Conversation = require("../models/conversation");
-const User = require("../models/user");
-const Job = require("../models/job");
+const Talent = require("../models/talent");
+const Job = require("../models/Job/Job");
 const s3 = require("../utils/doSpaces");
 const multer = require("multer");
 const upload = multer({ storage: multer.memoryStorage() });
+const { fetchAndParsePDF, cleanTextAdvanced } = require("../utils/pdfParser");
+const { cleanJobDescription } = require("../utils/textCleaner");
 
 const openai = new OpenAI();
 
 const initiateInterview = async (req, res) => {
   try {
-    const { jobId, userId } = req.body;
+    const { jobId, talentId } = req.body;
+
+    // Validate required fields
+    if (!jobId || !talentId) {
+      return res.status(400).json({ 
+        error: 'Missing Required Fields',
+        message: 'jobId and talentId are required' 
+      });
+    }
 
     // Check if the job exists
     const job = await Job.findById(jobId);
     if (!job) {
-      return res.status(404).json({ message: "Job not found" });
+      return res.status(404).json({ 
+        error: 'Job Not Found',
+        message: "Job not found" 
+      });
     }
-const jobTitle = job?.job_title || "Unknown Position";
-    const industry = job?.industry || "Unknown Industry";
- const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "user not found" });
+    
+    const jobTitle = job?.job_title || "Unknown Position";
+    const clientName = job?.assignedClient.client_name || "Unknown Company";
+    
+    // Clean the job description to remove HTML tags and formatting
+    const cleanedJobDescription = cleanJobDescription(job.job_description || '');
+    
+    const talent = await Talent.findById(talentId);
+    
+    if (!talent) {
+      return res.status(404).json({ 
+        error: 'Talent Not Found',
+        message: "Talent not found" 
+      });
+    }
+
+    // Fetch and parse resume from PDF URL
+    let resumeText = '';
+    if (talent.resumeURL) {
+      try {
+        resumeText = await fetchAndParsePDF(talent.resumeURL);
+        console.log('Resume text extracted successfully, length:', resumeText.length);
+      } catch (error) {
+        console.error('Error parsing resume PDF:', error);
+        // Continue with empty resume text if parsing fails
+        resumeText = 'Resume not available or could not be parsed.';
+      }
+    } else {
+      resumeText = 'Resume not available.';
     }
 
         // Create a new interview
         const interview = new Interview({
             job: jobId,
-            user: userId,
+            talent: talentId,
             status: 'pending',
             date: new Date(),
         });
@@ -41,11 +77,13 @@ const jobTitle = job?.job_title || "Unknown Position";
             messages: [
                 {
                     role: 'system',
-                    text: `You are an interviewer for the position of ${job.title} at ${job.company} where the requirements are ${job.requirements.join(', ')}.
-                    Job description is as follows: \n${job.description}.
-                    User's resume is ${user.resume}.
-
-                    Based on the resume and job description provided, generate a (question)/(followup question)/(interviewer response) to the candidate's response given the questions you have to ask and get answers to. If the candidate's response is satisfactory, ask the next question. 
+                    text: `You are an interviewer for the position of ${job.job_title} at ${job.assignedClient.client_name}.
+                    Job description is as follows: \n${cleanedJobDescription}
+                    
+                    Candidate's Resume Content:
+                    ${resumeText}
+                    
+                    Based on the resume and job description provided, generate a (question)/(followup question)/(interviewer response) to the candidate's response given the questions you have to ask and get answers to. If the candidate's response is satisfactory, ask the next question.
                     
                     Strictly ask only 1 question at a time. 
                     The question should be ideally from the knowledge we already have about the candidate.
@@ -58,7 +96,7 @@ const jobTitle = job?.job_title || "Unknown Position";
         },
         {
           role: "assistant",
-          text: `Hello ${user.name}! Today I am going to take your interview for the position of ${jobTitle} at ${industry}.`,
+          text: `Hello ${talent.firstName} ${talent.lastName}! Today I am going to take your interview for the position of ${jobTitle} at ${clientName}.`,
         },
       ],
     });
@@ -69,29 +107,55 @@ const jobTitle = job?.job_title || "Unknown Position";
     await interview.save();
 
     // Return the created interview
-    res.status(201).json(interview);
+    res.status(201).json({
+      message: "Interview initiated successfully",
+      interview
+    });
   } catch (error) {
     console.error("Error creating interview:", error);
-    res.status(500).json({ message: error.message});
+    res.status(500).json({ 
+      error: 'Interview Creation Failed',
+      message: error.message
+    });
   }
 };
 
 const getInterview = async (req, res) => {
   try {
     const { interviewId } = req.params;
+    
+    // Validate interviewId
+    if (!interviewId) {
+      return res.status(400).json({
+        error: 'Missing Interview ID',
+        message: 'Interview ID is required'
+      });
+    }
+    
     // Check if the interview exists
     const interview = await Interview.findById(interviewId)
       .populate("job")
-      .populate("user")
+      .populate("talent")
       .populate("conversation");
+      
     if (!interview) {
-      return res.status(404).json({ message: "Interview not found" });
+      return res.status(404).json({ 
+        error: 'Interview Not Found',
+        message: "Interview not found" 
+      });
     }
+    
     // Return the interview
-    res.status(200).json(interview);
+    res.status(200).json({
+      message: "Interview retrieved successfully",
+      interview
+    });
   } catch (error) {
     console.error("Error getting interview:", error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      error: 'Interview Retrieval Failed',
+      message: error.message 
+    });
   }
 };
 
@@ -99,23 +163,41 @@ const replyToInterview = async (req, res) => {
   try {
     const { interviewId } = req.params;
     const { message } = req.body;
+    
+    // Validate required fields
+    if (!message || message.trim() === '') {
+      return res.status(400).json({
+        error: 'Missing Message',
+        message: 'Message is required'
+      });
+    }
+    
     // Check if the interview exists
     const interview = await Interview.findById(interviewId);
     if (!interview) {
-      return res.status(404).json({ message: "Interview not found" });
+      return res.status(404).json({ 
+        error: 'Interview Not Found',
+        message: "Interview not found" 
+      });
     }
 
     // Check if the conversation exists
     const conversation = await Conversation.findById(interview.conversation);
     if (!conversation) {
-      return res.status(404).json({ message: "Conversation not found" });
+      return res.status(404).json({ 
+        error: 'Conversation Not Found',
+        message: "Conversation not found" 
+      });
     }
 
     // Check if the interview has already ended
     if (conversation.isEnded || interview.status === "completed") {
       return res
         .status(400)
-        .json({ message: "This interview has already ended" });
+        .json({ 
+          error: 'Interview Already Ended',
+          message: "This interview has already ended" 
+        });
     }
 
     // Add the message to the conversation
@@ -157,33 +239,57 @@ const replyToInterview = async (req, res) => {
 
     // Return the updated conversation
     res.status(200).json({
-      role: "assistant",
-      text: response.choices[0].message.content,
+      message: "Reply sent successfully",
+      response: {
+        role: "assistant",
+        text: response.choices[0].message.content,
+      }
     });
   } catch (error) {
     console.error("Error replying to interview:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ 
+      error: 'Interview Reply Failed',
+      message: "Internal server error" 
+    });
   }
 };
 
 const endInterview = async (req, res) => {
   try {
     const { interviewId } = req.params;
+    
+    // Validate interviewId
+    if (!interviewId) {
+      return res.status(400).json({
+        error: 'Missing Interview ID',
+        message: 'Interview ID is required'
+      });
+    }
+    
     // Check if the interview exists
     const interview = await Interview.findById(interviewId);
     if (!interview) {
-      return res.status(404).json({ message: "Interview not found" });
+      return res.status(404).json({ 
+        error: 'Interview Not Found',
+        message: "Interview not found" 
+      });
     }
+    
     // Check if the conversation exists
     const conversation = await Conversation.findById(interview.conversation);
     if (!conversation) {
-      return res.status(404).json({ message: "Conversation not found" });
+      return res.status(404).json({ 
+        error: 'Conversation Not Found',
+        message: "Conversation not found" 
+      });
     }
+    
     // Mark the conversation as ended
     conversation.isEnded = true;
     interview.status = "completed";
     await conversation.save();
     await interview.save();
+    
     // Return the updated interview
     res.status(200).json({
       message: "Interview ended successfully",
@@ -191,7 +297,10 @@ const endInterview = async (req, res) => {
     });
   } catch (error) {
     console.error("Error ending interview:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ 
+      error: 'Interview End Failed',
+      message: "Internal server error" 
+    });
   }
 };
 
@@ -201,12 +310,28 @@ const uploadInterviewVideo = [
   async (req, res) => {
     try {
       const { interviewId } = req.params;
+      
+      // Validate interviewId
+      if (!interviewId) {
+        return res.status(400).json({
+          error: 'Missing Interview ID',
+          message: 'Interview ID is required'
+        });
+      }
+      
       const interview = await Interview.findById(interviewId);
       if (!interview) {
-        return res.status(404).json({ message: "Interview not found" });
+        return res.status(404).json({ 
+          error: 'Interview Not Found',
+          message: "Interview not found" 
+        });
       }
+      
       if (!req.file) {
-        return res.status(400).json({ message: "No video file uploaded" });
+        return res.status(400).json({ 
+          error: 'No Video File',
+          message: "No video file uploaded" 
+        });
       }
       // Generate a unique file name
       const fileName = `interviews/${interviewId}/${Date.now()}_${
@@ -234,7 +359,10 @@ const uploadInterviewVideo = [
         });
     } catch (error) {
       console.error("Error uploading interview video:", error);
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ 
+        error: 'Video Upload Failed',
+        message: error.message 
+      });
     }
   },
 ];
