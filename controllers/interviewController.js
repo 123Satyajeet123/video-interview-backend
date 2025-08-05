@@ -17,7 +17,7 @@ const initiateInterview = async (req, res) => {
 
     // Validate required fields
     if (!jobId || !talentId) {
-      return res.status(400).json({ 
+      return res.status(400).json({   
         error: 'Missing Required Fields',
         message: 'jobId and talentId are required' 
       });

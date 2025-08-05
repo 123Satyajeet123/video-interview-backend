@@ -8,6 +8,7 @@ const {
 } = require('../controllers/interviewController');
 const { fetchAndParsePDF } = require('../utils/pdfParser');
 const { cleanJobDescription } = require('../utils/textCleaner');
+const { generateTTSAudio } = require('../utils/generateTTSAudio');
 
 const router = express.Router();
 
@@ -87,6 +88,47 @@ router.post('/test-html-clean', async (req, res) => {
         res.status(500).json({
             error: 'HTML Cleaning Test Failed',
             message: error.message
+        });
+    }
+});
+
+router.post("/tts", async (req, res) => {
+    try {
+        const { text } = req.body;
+        
+        // Validate input
+        if (!text || typeof text !== 'string' || text.trim() === '') {
+            return res.status(400).json({
+                error: 'Invalid Input',
+                message: 'Text is required and must be a non-empty string'
+            });
+        }
+        
+        // Limit text length to prevent abuse
+        const maxLength = 1000;
+        if (text.length > maxLength) {
+            return res.status(400).json({
+                error: 'Text Too Long',
+                message: `Text must be ${maxLength} characters or less`
+            });
+        }
+        
+        console.log('Generating TTS for text:', text.substring(0, 100) + '...');
+        const audioBuffer = await generateTTSAudio(text);
+        
+        // Set appropriate headers
+        res.set({
+            "Content-Type": "audio/mpeg",
+            "Content-Length": audioBuffer.length,
+            "Cache-Control": "public, max-age=3600" // Cache for 1 hour
+        });
+        
+        res.send(audioBuffer);
+    } catch (err) {
+        console.error('TTS generation failed:', err);
+        res.status(500).json({ 
+            error: 'TTS Generation Failed',
+            message: err.message 
         });
     }
 });
