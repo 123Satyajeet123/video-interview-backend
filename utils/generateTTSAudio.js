@@ -1,4 +1,6 @@
 const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 
 /**
  * Fetches TTS audio from OpenAI and returns it as a buffer.
@@ -56,6 +58,46 @@ const generateTTSAudio = async (text) => {
   }
 };
 
+/**
+ * Generates TTS audio and saves it to a file for testing
+ * @param {string} text - The input text to convert to speech.
+ * @param {string} filename - Optional filename (without extension).
+ * @returns {Promise<Object>} - Object containing file path and metadata.
+ */
+const generateAndSaveTTSAudio = async (text, filename = null) => {
+  try {
+    const audioBuffer = await generateTTSAudio(text);
+    
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = path.join(__dirname, '..', 'uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    
+    // Generate filename if not provided
+    const timestamp = Date.now();
+    const safeText = text.substring(0, 20).replace(/[^a-zA-Z0-9]/g, '_');
+    const finalFilename = filename || `tts_${timestamp}_${safeText}.mp3`;
+    const filePath = path.join(uploadsDir, finalFilename);
+    
+    // Save the audio file
+    fs.writeFileSync(filePath, audioBuffer);
+    
+    return {
+      success: true,
+      filePath: filePath,
+      filename: finalFilename,
+      sizeBytes: audioBuffer.length,
+      sizeKB: (audioBuffer.length / 1024).toFixed(2),
+      text: text
+    };
+  } catch (error) {
+    console.error('Error saving TTS audio:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   generateTTSAudio,
+  generateAndSaveTTSAudio
 };

@@ -8,7 +8,7 @@ const {
 } = require('../controllers/interviewController');
 const { fetchAndParsePDF } = require('../utils/pdfParser');
 const { cleanJobDescription } = require('../utils/textCleaner');
-const { generateTTSAudio } = require('../utils/generateTTSAudio');
+const { generateTTSAudio, generateAndSaveTTSAudio } = require('../utils/generateTTSAudio');
 
 const router = express.Router();
 
@@ -128,6 +128,74 @@ router.post("/tts", async (req, res) => {
         console.error('TTS generation failed:', err);
         res.status(500).json({ 
             error: 'TTS Generation Failed',
+            message: err.message 
+        });
+    }
+});
+
+// Test TTS endpoint with metadata
+router.post("/tts-test", async (req, res) => {
+    try {
+        const { text } = req.body;
+        
+        // Validate input
+        if (!text || typeof text !== 'string' || text.trim() === '') {
+            return res.status(400).json({
+                error: 'Invalid Input',
+                message: 'Text is required and must be a non-empty string'
+            });
+        }
+        
+        console.log('Testing TTS for text:', text.substring(0, 100) + '...');
+        const audioBuffer = await generateTTSAudio(text);
+        
+        // Return metadata instead of audio for testing
+        res.status(200).json({
+            success: true,
+            message: 'TTS generated successfully',
+            metadata: {
+                textLength: text.length,
+                audioSizeBytes: audioBuffer.length,
+                audioSizeKB: (audioBuffer.length / 1024).toFixed(2),
+                estimatedDuration: Math.ceil(audioBuffer.length / 16000), // Rough estimate
+                contentType: 'audio/mpeg'
+            },
+            text: text
+        });
+    } catch (err) {
+        console.error('TTS test failed:', err);
+        res.status(500).json({ 
+            error: 'TTS Test Failed',
+            message: err.message 
+        });
+    }
+});
+
+// Save TTS audio to file for testing
+router.post("/tts-save", async (req, res) => {
+    try {
+        const { text, filename } = req.body;
+        
+        // Validate input
+        if (!text || typeof text !== 'string' || text.trim() === '') {
+            return res.status(400).json({
+                error: 'Invalid Input',
+                message: 'Text is required and must be a non-empty string'
+            });
+        }
+        
+        console.log('Saving TTS audio for text:', text.substring(0, 100) + '...');
+        const result = await generateAndSaveTTSAudio(text, filename);
+        
+        res.status(200).json({
+            success: true,
+            message: 'TTS audio saved successfully',
+            data: result
+        });
+    } catch (err) {
+        console.error('TTS save failed:', err);
+        res.status(500).json({ 
+            error: 'TTS Save Failed',
             message: err.message 
         });
     }
