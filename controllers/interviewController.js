@@ -21,9 +21,86 @@ const validateInterviewStatus = (status) => {
   return validStatuses.includes(status);
 };
 
+/**
+ * Validates interview configuration parameters
+ * @param {Object} config - Configuration object
+ * @returns {Object} - Validation result
+ */
+const validateInterviewConfig = (config) => {
+  const errors = [];
+  
+  // Validate maxMainQuestions
+  if (config.maxMainQuestions !== undefined) {
+    if (!Number.isInteger(config.maxMainQuestions) || config.maxMainQuestions < 1 || config.maxMainQuestions > 20) {
+      errors.push("maxMainQuestions must be an integer between 1 and 20");
+    }
+  }
+  
+  // Validate maxFollowUpQuestions
+  if (config.maxFollowUpQuestions !== undefined) {
+    if (!Number.isInteger(config.maxFollowUpQuestions) || config.maxFollowUpQuestions < 0 || config.maxFollowUpQuestions > 5) {
+      errors.push("maxFollowUpQuestions must be an integer between 0 and 5");
+    }
+  }
+  
+  // Validate maxTotalQuestions
+  if (config.maxTotalQuestions !== undefined) {
+    if (!Number.isInteger(config.maxTotalQuestions) || config.maxTotalQuestions < 1 || config.maxTotalQuestions > 50) {
+      errors.push("maxTotalQuestions must be an integer between 1 and 50");
+    }
+  }
+  
+  // Validate closingStatement
+  if (config.closingStatement !== undefined) {
+    if (typeof config.closingStatement !== 'string' || config.closingStatement.trim().length === 0 || config.closingStatement.length > 500) {
+      errors.push("closingStatement must be a non-empty string with maximum 500 characters");
+    }
+  }
+  
+  // Validate questionTypes
+  if (config.questionTypes !== undefined) {
+    if (!Array.isArray(config.questionTypes) || config.questionTypes.length === 0) {
+      errors.push("questionTypes must be a non-empty array");
+    } else {
+      const validTypes = ["technical", "experience", "technical_challenges", "team_collaboration", "behavioral", "candidate_questions", "conclusion"];
+      const invalidTypes = config.questionTypes.filter(type => !validTypes.includes(type));
+      if (invalidTypes.length > 0) {
+        errors.push(`Invalid question types: ${invalidTypes.join(', ')}. Valid types are: ${validTypes.join(', ')}`);
+      }
+    }
+  }
+  
+  // Validate customInstructions
+  if (config.customInstructions !== undefined) {
+    if (typeof config.customInstructions !== 'string' || config.customInstructions.length > 1000) {
+      errors.push("customInstructions must be a string with maximum 1000 characters");
+    }
+  }
+  
+  if (errors.length > 0) {
+    return {
+      error: "Configuration Validation Failed",
+      message: "One or more configuration parameters are invalid",
+      details: errors
+    };
+  }
+  
+  return { error: null };
+};
+
 const initiateInterview = async (req, res) => {
   try {
-    const { jobId, talentId } = req.body;
+    const { 
+      jobId, 
+      talentId, 
+      // Optional interview configuration
+      maxMainQuestions,
+      maxFollowUpQuestions,
+      maxTotalQuestions,
+      closingStatement,
+      questionTypes,
+      customInstructions
+    } = req.body;
 
     // Validate required fields
     if (!jobId || !talentId) {
@@ -50,6 +127,20 @@ const initiateInterview = async (req, res) => {
         message: "talentId must be a valid MongoDB ObjectId",
         received: talentId
       });
+    }
+
+    // Validate optional configuration parameters
+    const configValidation = validateInterviewConfig({
+      maxMainQuestions,
+      maxFollowUpQuestions,
+      maxTotalQuestions,
+      closingStatement,
+      questionTypes,
+      customInstructions
+    });
+
+    if (configValidation.error) {
+      return res.status(400).json(configValidation);
     }
 
     // Check if the job exists
@@ -115,43 +206,78 @@ const initiateInterview = async (req, res) => {
       resumeText = "Resume not available.";
     }
 
-    // Create a new interview
+    // Create a new interview with configuration
     const interview = new Interview({
       job: jobId,
       talent: talentId,
       status: "pending",
       date: new Date(),
+      interviewConfig: {
+        maxMainQuestions: maxMainQuestions || 5,
+        maxFollowUpQuestions: maxFollowUpQuestions || 2,
+        maxTotalQuestions: maxTotalQuestions || 15,
+        closingStatement: closingStatement || "Thank you for your time. Your interview is complete now. We have gathered sufficient information to assess your application. Our team will review your responses and contact you with next steps soon.",
+        questionTypes: questionTypes || ["technical", "experience", "technical_challenges", "team_collaboration", "behavioral"],
+        customInstructions: customInstructions || ""
+      }
     });
     await interview.save();
 
-    // Create a new conversation
+    // Create a new conversation with interview-specific configuration
     const conversation = new Conversation({
       interview: interview._id,
       messages: [
         {
           role: "system",
-          text: `You are an interviewer for the position of ${job.job_title} at ${job.assignedClient.client_name}.
-                    Job description is as follows: \n${cleanedJobDescription}
-                    
-                    Candidate's Resume Content:
-                    ${resumeText}
-                    
-                    Based on the resume and job description provided, generate a (question)/(followup question)/(interviewer response) to the candidate's response given the questions you have to ask and get answers to. If the candidate's response is satisfactory, ask the next question.
-                    
-                    Strictly ask only 1 question at a time. 
-                    The question should be ideally from the knowledge we already have about the candidate.
-                    If the candidate's response is not satisfactory or explanatory, ask them to elaborate on their answer or ask follow up questions. Don't move ahead until the candidate has answered the question satisfactorily. 
-                    Try to ask at maximum 1 follow up questions for each question.
-                    If the candidate is not able to answer a question, ask them to take their time and think about it.
-                    Strictly ask 1 question at a time in the conversation. 
-                    After 2 questions (excluding the follow up questions), ask the candidate if they have any questions for you and end the interview.
-                    To end the interview, say "Thank you for your time and we will get back to you soon."`,
+          text: `You are an AI interviewer for the position of ${job.job_title} at ${job.assignedClient.client_name}.
+
+IMPORTANT INTERVIEW RULES:
+1. MAXIMUM QUESTIONS: Ask exactly ${interview.interviewConfig.maxMainQuestions} main questions (excluding follow-ups)
+2. FOLLOW-UP LIMIT: Maximum ${interview.interviewConfig.maxFollowUpQuestions} follow-up questions per main question
+3. QUESTION FLOW: Ask one question at a time, wait for response, then proceed
+4. ASSESSMENT CRITERIA: Focus on technical skills, experience, and cultural fit
+5. STOPPING CRITERIA: End interview after ${interview.interviewConfig.maxMainQuestions} main questions + candidate questions
+
+INTERVIEW STRUCTURE:
+- Question 1: Technical skills assessment
+- Question 2: Experience and project discussion  
+- Question 3: Technical challenges
+- Question 4: Team collaboration
+- Question 5: Behavioral/cultural fit
+- Final: Ask candidate if they have questions
+- Conclusion: "${interview.interviewConfig.closingStatement}"
+
+${interview.interviewConfig.customInstructions ? `CUSTOM INSTRUCTIONS: ${interview.interviewConfig.customInstructions}\n` : ''}
+Job description: ${cleanedJobDescription}
+
+Candidate's Resume: ${resumeText}
+
+Remember: Keep questions focused, assess thoroughly, and conclude after ${interview.interviewConfig.maxMainQuestions} main questions.`,
         },
         {
           role: "assistant",
-          text: `Hello ${talent.firstName} ${talent.lastName}! Today I am going to take your interview for the position of ${jobTitle} at ${clientName}.`,
+          text: `Hello ${talent.firstName} ${talent.lastName}! Welcome to your interview for the position of ${jobTitle} at ${clientName}. 
+
+I'm here to assess your qualifications and experience for this role. Let's begin with our first question.
+
+Can you tell me about your experience with the key technologies mentioned in this role, particularly focusing on your hands-on experience with testing tools and methodologies?`,
         },
       ],
+              // Add interview metadata for tracking with interview-specific limits
+        interviewMetadata: {
+          mainQuestionsAsked: 1, // First question is already asked
+          followUpQuestionsAsked: 0,
+          currentQuestionType: "technical",
+          interviewPhase: "started",
+          lastMainQuestionIndex: 1,
+          // Store interview-specific configuration for reference
+          interviewConfig: {
+            maxMainQuestions: interview.interviewConfig.maxMainQuestions,
+            maxFollowUpQuestions: interview.interviewConfig.maxFollowUpQuestions,
+            maxTotalQuestions: interview.interviewConfig.maxTotalQuestions,
+            closingStatement: interview.interviewConfig.closingStatement
+          }
+        }
     });
     await conversation.save();
 
@@ -159,7 +285,7 @@ const initiateInterview = async (req, res) => {
     interview.conversation = conversation._id;
     await interview.save();
 
-    // Return the created interview
+    // Return the created interview with configuration
     res.status(201).json({
       message: "Interview initiated successfully",
       interview: {
@@ -168,6 +294,7 @@ const initiateInterview = async (req, res) => {
         talent: interview.talent,
         status: interview.status,
         conversation: interview.conversation,
+        interviewConfig: interview.interviewConfig,
         createdAt: interview.createdAt
       },
       conversation: {
@@ -237,10 +364,24 @@ const getInterview = async (req, res) => {
       });
     }
 
-    // Return the interview
+    // Add interview progress information
+    let interviewProgress = null;
+    if (interview.conversation && interview.conversation.interviewMetadata) {
+      interviewProgress = {
+        mainQuestionsAsked: interview.conversation.interviewMetadata.mainQuestionsAsked,
+        followUpQuestionsAsked: interview.conversation.interviewMetadata.followUpQuestionsAsked,
+        currentQuestionType: interview.conversation.interviewMetadata.currentQuestionType,
+        interviewPhase: interview.conversation.interviewMetadata.interviewPhase,
+        progressPercentage: Math.round((interview.conversation.interviewMetadata.mainQuestionsAsked / 3) * 100),
+        estimatedTimeRemaining: estimateTimeRemaining(interview.conversation.interviewMetadata)
+      };
+    }
+
+    // Return the interview with progress
     res.status(200).json({
       message: "Interview retrieved successfully",
       interview,
+      interviewProgress
     });
   } catch (error) {
     console.error("Error getting interview:", error);
@@ -348,15 +489,23 @@ const replyToInterview = async (req, res) => {
       timestamp: new Date(),
     });
 
-    // Generate a response using OpenAI
+    // Analyze conversation to determine next action
+    const shouldEndInterview = analyzeInterviewProgress(conversation);
+    
     let openaiResponse;
     try {
+      // Create enhanced system message with current progress
+      const enhancedSystemMessage = createEnhancedSystemMessage(conversation, shouldEndInterview);
+      
       openaiResponse = await openai.chat.completions.create({
         model: "gpt-4o-mini",
-        messages: conversation.messages.map((msg) => ({
-          role: msg.role,
-          content: msg.text,
-        })),
+        messages: [
+          { role: "system", content: enhancedSystemMessage },
+          ...conversation.messages.slice(1).map((msg) => ({
+            role: msg.role,
+            content: msg.text,
+          }))
+        ],
         max_tokens: 500,
         temperature: 0.7,
       });
@@ -373,6 +522,9 @@ const replyToInterview = async (req, res) => {
       });
     }
 
+    // Update interview metadata based on AI response
+    updateInterviewMetadata(conversation, openaiResponse.choices[0].message.content);
+    
     // Add the response to the conversation
     conversation.messages.push({
       role: "assistant",
@@ -382,14 +534,14 @@ const replyToInterview = async (req, res) => {
     
     interview.status = "in_progress";
 
-    if (
-      openaiResponse.choices[0].message.content
-        .toLowerCase()
-        .includes("thank you for your time")
-    ) {
+    // Check if interview should end
+    if (shouldEndInterview || 
+        openaiResponse.choices[0].message.content.toLowerCase().includes("thank you for your time") ||
+        conversation.interviewMetadata.interviewPhase === "concluding") {
       // Mark the conversation as ended
       conversation.isEnded = true;
       interview.status = "completed";
+      conversation.interviewMetadata.interviewPhase = "completed";
     }
 
     await conversation.save();
@@ -645,6 +797,214 @@ const uploadInterviewVideo = [
     }
   },
 ];
+
+// Helper functions for interview flow control
+
+/**
+ * Analyzes the conversation to determine if the interview should end
+ * @param {Object} conversation - The conversation object
+ * @returns {boolean} - True if interview should end
+ */
+const analyzeInterviewProgress = (conversation) => {
+  const metadata = conversation.interviewMetadata;
+  let config = metadata.interviewConfig; // Get interview-specific configuration
+  
+  // Safety check: if config is missing, use defaults
+  if (!config) {
+    console.warn('Interview configuration missing, using default values');
+    config = {
+      maxMainQuestions: 5,
+      maxFollowUpQuestions: 2,
+      maxTotalQuestions: 15
+    };
+  }
+  
+  // Check if we've reached the maximum main questions
+  if (metadata.mainQuestionsAsked >= config.maxMainQuestions) {
+    console.log(`Interview ending: Reached maximum ${config.maxMainQuestions} main questions`);
+    return true;
+  }
+  
+  // Check if we're in conclusion phase
+  if (metadata.interviewPhase === "concluding") {
+    console.log('Interview ending: Already in conclusion phase');
+    return true;
+  }
+  
+  // Check if we've been asking too many follow-ups
+  if (metadata.followUpQuestionsAsked >= config.maxFollowUpQuestions) {
+    console.log(`Interview ending: Reached maximum ${config.maxFollowUpQuestions} follow-up questions`);
+    return true;
+  }
+  
+  // Check total questions limit as additional safety
+  const totalQuestions = metadata.mainQuestionsAsked + metadata.followUpQuestionsAsked;
+  if (totalQuestions >= config.maxTotalQuestions) {
+    console.log(`Interview ending: Reached maximum ${config.maxTotalQuestions} total questions`);
+    return true;
+  }
+  
+  return false;
+};
+
+/**
+ * Creates an enhanced system message based on current interview progress
+ * @param {Object} conversation - The conversation object
+ * @param {boolean} shouldEnd - Whether interview should end
+ * @returns {string} - Enhanced system message
+ */
+const createEnhancedSystemMessage = (conversation, shouldEnd) => {
+  const metadata = conversation.interviewMetadata;
+  let config = metadata.interviewConfig; // Get interview-specific configuration
+  
+  // Safety check: if config is missing, use defaults
+  if (!config) {
+    console.warn('Interview configuration missing, using default values');
+    config = {
+      maxMainQuestions: 5,
+      maxFollowUpQuestions: 2,
+      maxTotalQuestions: 15,
+      closingStatement: "Thank you for your time. We have gathered sufficient information to assess your application. Our team will review your responses and contact you with next steps soon."
+    };
+  }
+  
+  if (shouldEnd) {
+    return `🚫 INTERVIEW MUST END NOW - NO MORE QUESTIONS ALLOWED:
+
+You have reached the maximum limit of ${config.maxMainQuestions} main questions. 
+The interview is now complete and you MUST provide a closing statement.
+
+REQUIRED CLOSING STATEMENT (use exactly this format):
+"${config.closingStatement}"
+
+CRITICAL RULES:
+1. DO NOT ask any more questions
+2. DO NOT ask for clarification
+3. DO NOT continue the conversation
+4. ONLY provide the closing statement above
+5. End the interview immediately`;
+  }
+  
+  let phaseInstruction = "";
+  if (metadata.mainQuestionsAsked === 0) {
+    phaseInstruction = "Ask your first main question about technical skills and experience.";
+  } else if (metadata.mainQuestionsAsked === 1) {
+    phaseInstruction = "Ask your second main question about specific projects and achievements.";
+  } else if (metadata.mainQuestionsAsked === 2) {
+    phaseInstruction = "Ask your third main question about specific technical challenges.";
+  } else if (metadata.mainQuestionsAsked === 3) {
+    phaseInstruction = "Ask your fourth main question about team collaboration and communication.";
+  } else if (metadata.mainQuestionsAsked === 4) {
+    phaseInstruction = "Ask your fifth main question about behavioral/cultural fit, then ask if the candidate has questions for you.";
+  }
+  
+  return `You are an AI interviewer. Current progress:
+- Main questions asked: ${metadata.mainQuestionsAsked}/${config.maxMainQuestions}
+- Follow-up questions asked: ${metadata.followUpQuestionsAsked}
+- Current phase: ${metadata.interviewPhase}
+
+${phaseInstruction}
+
+IMPORTANT RULES:
+1. Ask only ONE question at a time
+2. Maximum ${config.maxFollowUpQuestions} follow-up questions per main question
+3. After ${config.maxMainQuestions} main questions, ask if candidate has questions, then conclude
+4. Keep responses focused and professional
+5. If candidate's response is unclear, ask ONE follow-up question maximum`;
+};
+
+/**
+ * Updates interview metadata based on AI response
+ * @param {Object} conversation - The conversation object
+ * @param {string} aiResponse - The AI's response text
+ */
+const updateInterviewMetadata = (conversation, aiResponse) => {
+  const metadata = conversation.interviewMetadata;
+  let config = metadata.interviewConfig; // Get interview-specific configuration
+  
+  // Safety check: if config is missing, use defaults
+  if (!config) {
+    console.warn('Interview configuration missing, using default values');
+    config = {
+      maxMainQuestions: 5,
+      maxFollowUpQuestions: 2,
+      maxTotalQuestions: 15
+    };
+  }
+  
+  console.log('Updating interview metadata with config:', {
+    maxMainQuestions: config.maxMainQuestions,
+    maxFollowUpQuestions: config.maxFollowUpQuestions,
+    currentMainQuestions: metadata.mainQuestionsAsked,
+    currentFollowUps: metadata.followUpQuestionsAsked
+  });
+  
+  const response = aiResponse.toLowerCase();
+  
+  // Check if this is a main question (not a follow-up)
+  const isMainQuestion = response.includes("?") && 
+                        !response.includes("can you elaborate") &&
+                        !response.includes("tell me more") &&
+                        !response.includes("could you explain") &&
+                        !response.includes("what do you mean");
+  
+  if (isMainQuestion && metadata.mainQuestionsAsked < config.maxMainQuestions) {
+    metadata.mainQuestionsAsked += 1;
+    metadata.followUpQuestionsAsked = 0; // Reset follow-up counter for new main question
+    
+    // Update question type based on count
+    if (metadata.mainQuestionsAsked === 1) {
+      metadata.currentQuestionType = "technical";
+      metadata.interviewPhase = "in_progress";
+    } else if (metadata.mainQuestionsAsked === 2) {
+      metadata.currentQuestionType = "experience";
+    } else if (metadata.mainQuestionsAsked === 3) {
+      metadata.currentQuestionType = "technical_challenges";
+    } else if (metadata.mainQuestionsAsked === 4) {
+      metadata.currentQuestionType = "team_collaboration";
+    } else if (metadata.mainQuestionsAsked === 5) {
+      metadata.currentQuestionType = "behavioral";
+      metadata.interviewPhase = "concluding";
+    }
+  } else if (response.includes("?") && metadata.mainQuestionsAsked > 0) {
+    // This is a follow-up question
+    metadata.followUpQuestionsAsked += 1;
+  }
+  
+  // Check if we should move to conclusion phase
+  if (metadata.mainQuestionsAsked >= config.maxMainQuestions && response.includes("thank you")) {
+    metadata.interviewPhase = "completed";
+  }
+};
+
+/**
+ * Estimates remaining time for the interview
+ * @param {Object} metadata - Interview metadata
+ * @returns {string} - Estimated time remaining
+ */
+const estimateTimeRemaining = (metadata) => {
+  let config = metadata.interviewConfig; // Get interview-specific configuration
+  
+  // Safety check: if config is missing, use defaults
+  if (!config) {
+    console.warn('Interview configuration missing, using default values');
+    config = {
+      maxMainQuestions: 5,
+      maxFollowUpQuestions: 2,
+      maxTotalQuestions: 15
+    };
+  }
+  
+  const questionsRemaining = config.maxMainQuestions - metadata.mainQuestionsAsked;
+  const followUpsRemaining = Math.max(0, (config.maxFollowUpQuestions * config.maxMainQuestions) - metadata.followUpQuestionsAsked);
+  
+  if (questionsRemaining === 0) {
+    return "Interview concluding";
+  }
+  
+  const estimatedMinutes = (questionsRemaining * 3) + (followUpsRemaining * 1);
+  return `${estimatedMinutes} minutes remaining`;
+};
 
 module.exports = {
   initiateInterview,

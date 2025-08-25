@@ -16,6 +16,30 @@ const ConversationSchema = new mongoose.Schema(
         },
         messages: [MessageSchema],
         isEnded: { type: Boolean, default: false }, // Indicates if conversation has ended
+        interviewMetadata: {
+            mainQuestionsAsked: { type: Number, default: 0 },
+            followUpQuestionsAsked: { type: Number, default: 0 },
+            currentQuestionType: { 
+                type: String, 
+                enum: ["technical", "experience", "technical_challenges", "team_collaboration", "behavioral", "candidate_questions", "conclusion"],
+                default: "technical"
+            },
+            interviewPhase: { 
+                type: String, 
+                enum: ["started", "in_progress", "concluding", "completed"],
+                default: "started"
+            },
+            lastMainQuestionIndex: { type: Number, default: 0 },
+            // Store interview-specific configuration for reference
+            interviewConfig: {
+                maxMainQuestions: { type: Number, default: 5 },
+                maxFollowUpQuestions: { type: Number, default: 2 },
+                maxTotalQuestions: { type: Number, default: 15 },
+                closingStatement: { type: String, default: "" },
+                questionTypes: { type: [String], default: [] },
+                customInstructions: { type: String, default: "" }
+            }
+        }
     },
     { timestamps: true }
 );
