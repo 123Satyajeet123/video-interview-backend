@@ -723,7 +723,15 @@ const uploadInterviewVideo = [
       }
 
       // Validate file type
-      const allowedMimeTypes = ['video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/flv'];
+      const allowedMimeTypes = [
+        'video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/flv',
+        'video/webm', 'video/3gpp', 'video/3gpp2', 'video/x-matroska',
+        'video/x-msvideo', 'video/x-ms-wmv', 'video/x-flv', 'video/quicktime',
+        'video/mpeg', 'video/mp2t', 'video/ogg', 'video/x-ms-asf',
+        'video/x-ms-wmx', 'video/x-ms-wvx', 'video/x-ms-wm', 'video/x-ms-wmp',
+        'video/x-ms-wmv', 'video/x-ms-wvx', 'video/x-ms-wmx', 'video/x-ms-wm',
+        'video/x-ms-wmp', 'video/x-ms-wmv', 'video/x-ms-wvx', 'video/x-ms-wmx'
+      ];
       if (!allowedMimeTypes.includes(req.file.mimetype)) {
         return res.status(400).json({
           error: "Invalid File Type",
